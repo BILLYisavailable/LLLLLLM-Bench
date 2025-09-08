@@ -4,7 +4,6 @@ import glob
 import os
 import re
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from moba import register_moba, MoBAConfig
 
 
 class SimpleNeedleTester:
@@ -132,6 +131,7 @@ class SimpleNeedleTester:
         return prompt
     
     def evaluate_response(self, response, needle_or_needles):
+        """简单的关键词匹配评估"""
         if not response:
             return 0.0
         
@@ -159,8 +159,10 @@ class SimpleNeedleTester:
             return sum(scores) / len(scores) if scores else 0.0
 
 
-def call_model_with_moba(model_path, prompt, attn="flash_attention_2"):
-
+def call_model(model_path, prompt, attn="flash_attention_2"):
+    """调用模型生成响应（参考example.py）"""
+    
+    # 加载模型
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True,
@@ -169,10 +171,12 @@ def call_model_with_moba(model_path, prompt, attn="flash_attention_2"):
         attn_implementation=attn,
     )
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-
+    
+    # 编码输入
     input_tokens = tokenizer.encode(prompt)
     input_ids = torch.tensor([input_tokens], device=model.device)
-
+    
+    # 生成响应
     with torch.no_grad():
         tokens = model.generate(
             input_ids,
@@ -182,9 +186,11 @@ def call_model_with_moba(model_path, prompt, attn="flash_attention_2"):
             top_p=0.95,
             temperature=0.7
         )
-
+    
+    # 解码响应（只返回新生成的部分）
     response = tokenizer.decode(tokens[0][input_ids.shape[1]:], skip_special_tokens=True)
-
+    
+    # 清理GPU内存
     del model
     torch.cuda.empty_cache()
     
@@ -196,19 +202,21 @@ def needle_in_haystack_pipeline(model_path, test_type="single", attn="flash_atte
     完整的Needle in Haystack测试pipeline
     
     Args:
-        model_path: model path
+        model_path: 模型路径
         test_type: "single" 或 "multi"
-        attn: attn_implementation
+        attn: 注意力机制类型
     """
-    print(f"Begin {test_type} needle eval")
+    print(f"开始 {test_type} needle 测试")
     
     tester = SimpleNeedleTester(model_path)
     context = tester.read_context_files()
-
-    context_length = 4000
-    depth_percent = 50
+    
+    # 设置测试参数
+    context_length = 4000  # 目标context长度
+    depth_percent = 50     # needle插入深度
     
     if test_type == "single":
+        # 单needle测试
         needle = "The secret key is: BANANA_SPLIT_2024"
         question = "What is the secret key mentioned in the document?"
         
@@ -216,6 +224,7 @@ def needle_in_haystack_pipeline(model_path, test_type="single", attn="flash_atte
         context_with_needle = tester.insert_single_needle(context, needle, depth_percent, context_length)
         
     else:
+        # 多needle测试
         needles = [
             "The first secret code is: ALPHA_7788",
             "The second secret code is: BETA_9900", 
@@ -228,8 +237,8 @@ def needle_in_haystack_pipeline(model_path, test_type="single", attn="flash_atte
         needle = needles
     
     prompt = tester.generate_prompt(context_with_needle, question)
-    print("Model Responding...")
-    response = call_model_with_moba(model_path, prompt, attn)
+    print("调用模型中...")
+    response = call_model(model_path, prompt, attn)
     score = tester.evaluate_response(response, needle)
     
     print(f"响应: {response}")

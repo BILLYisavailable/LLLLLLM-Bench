@@ -8,18 +8,18 @@ from simple_needle_tester import needle_in_haystack_pipeline
 def main():
     parser = argparse.ArgumentParser(description="运行Needle in Haystack测试")
     parser.add_argument("--model", type=str, default="../models/Llama-3.1-8B-Instruct", 
-                       help="model path")
+                       help="模型路径")
     parser.add_argument("--test-type", type=str, choices=["single", "multi", "both"], 
-                       default="both", help="niah test type")
-    parser.add_argument("--attn", type=str, default="flash_attention_2",
-                       choices=["flash_attention_2", "eager", "sdpa"],
-                       help="attention implementation")
+                       default="both", help="测试类型")
+    parser.add_argument("--attn", type=str, default="flash_attention_2", 
+                       choices=["flash_attention_2"],
+                       help="注意力机制类型")
     
     args = parser.parse_args()
     
-    print(f"model: {args.model}")
-    print(f"test type: {args.test_type}")
-    print(f"attn: {args.attn}")
+    print(f"模型: {args.model}")
+    print(f"测试类型: {args.test_type}")
+    print(f"注意力机制: {args.attn}")
     
     results = []
     
